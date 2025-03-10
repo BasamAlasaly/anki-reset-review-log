@@ -7,15 +7,12 @@ from aqt import mw
 from aqt.utils import showInfo, askUser
 from aqt.qt import *
 
-from time import mktime,time
+from time import mktime, time
 from datetime import datetime
 from os.path import dirname
 
 def testFunction():
-    # get the number of cards in the current collection, which is stored in
-    # the main window
     cardCount = mw.col.cardCount()
-    # show a message box
     showInfo("Card count: %d" % cardCount)
 
 def epochTodayMidnight():
@@ -82,6 +79,18 @@ def resetLastHour():
     else:
         return
 
+def custom_reset(deck, from_date, to_date):
+    if deck.currentData() == "collection":
+        deck2 = ""
+    else:
+        deck2 = "and cid in (select id from cards where did = {})".format(deck.currentData())
+    reset = askUser("Are you sure you want to delete review history for all cards in \"{}\" reviewed from \"{}\" to \"{}\"? \nThis can't be undone.".format(deck.currentText(), from_date.dateTime().toString("MM/dd/yyyy"), to_date.dateTime().toString("MM/dd/yyyy")))
+    if reset:
+        mw.col.db.execute("delete from revlog where {} > id and id > {} {}".format(to_date.dateTime().toSecsSinceEpoch() * 1000, from_date.dateTime().toSecsSinceEpoch() * 1000, deck2))
+        showInfo("Done")
+    else:
+        return
+
 def time_window():
     addon_path = dirname(__file__)
     decks = mw.col.decks.all()
@@ -109,4 +118,39 @@ def time_window():
     to_date.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTrailing | Qt.AlignmentFlag.AlignVCenter)
     to_date.setMinimumDate(QDate(2006, 10, 5))
     to_date.setDate(QDate.currentDate())
-    to_date.setCalendarP
+    to_date.setCalendarPopup(True)
+    layout = QVBoxLayout()
+    layout.addWidget(for_label)
+    layout.addWidget(deck)
+    layout.addWidget(from_label)
+    layout.addWidget(from_date)
+    layout.addWidget(to_label)
+    layout.addWidget(to_date)
+    layout.addWidget(delete_button)
+    window.setLayout(layout)
+    delete_button.clicked.connect(lambda: (custom_reset(deck, from_date, to_date), window.accept()))
+    window.exec()
+
+DAY = 86400
+HOUR = 3600
+
+resetStudy = mw.form.menuTools.addMenu("Reset Study")
+resetLastHourAction = resetStudy.addAction("Last hour")
+resetTodayAction = resetStudy.addAction("Today")
+resetYesterdayAction = resetStudy.addAction("Yesterday")
+resetOneWeekAction = resetStudy.addAction("One Week")
+resetTwoWeeksAction = resetStudy.addAction("Two Weeks")
+resetThreeWeeksAction = resetStudy.addAction("Three Weeks")
+resetMonthAction = resetStudy.addAction("A month ago")
+resetYearAction = resetStudy.addAction("A year ago")
+customResetAction = resetStudy.addAction("Custom")
+
+resetLastHourAction.triggered.connect(resetLastHour)
+resetTodayAction.triggered.connect(resetToday)
+resetYesterdayAction.triggered.connect(resetYesterday)
+resetOneWeekAction.triggered.connect(resetOneWeekAgo)
+resetTwoWeeksAction.triggered.connect(resetTwoWeeksAgo)
+resetThreeWeeksAction.triggered.connect(resetThreeWeeksAgo)
+resetMonthAction.triggered.connect(resetMonthAgo)
+resetYearAction.triggered.connect(resetYearAgo)
+customResetAction.triggered.connect(time_window)
